@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 import scipy
 from scipy.io import savemat
 from scipy.signal import savgol_filter
+from matplotlib.colors import PowerNorm
 
 def localization(path,supermats,FR,num_bubbles,fovx, fovy, SVD=True,display_on=True,tracking='CT', loc_method = 'brightest_points'):
 
@@ -34,13 +35,13 @@ def localization(path,supermats,FR,num_bubbles,fovx, fovy, SVD=True,display_on=T
     OptFlow = OpticFlow(4)
     
     sr = cv2.dnn_superres.DnnSuperResImpl_create()
-    sr.readModel("./models/FSRCNN_x2.pb")
+    sr.readModel("ULM\models\FSRCNN_x2.pb")
     sr.setModel("fsrcnn", 2)
     for s in supermats:
         # s = '{0:03}'.format(s) # for loading data in superframes of more than 100 and numbering is 001, 002, 003 ... etc
         data_unfilt = processing.loaddata(path,s)
         if SVD:
-            data_unfilt = processing.SVD_filt(data_unfilt,4)
+            data_unfilt = processing.SVD_filt(data_unfilt,3)
         sos = sc.signal.butter(2, [10, int((FR-20)/2)] , fs = FR, btype='band',output = 'sos') 
         data = sc.signal.sosfilt(sos, data_unfilt)
         data = data[:,:,10:]
@@ -49,10 +50,10 @@ def localization(path,supermats,FR,num_bubbles,fovx, fovy, SVD=True,display_on=T
         for i in range(0,num_frames):
             im = data[:,:,i]
             im = processing.log_scale(im, db=1)
-            im_upsample = scipy.ndimage.zoom(im, 2, order=1)
+            im_upsample = scipy.ndimage.zoom(im, 2, order=1) #factor 2 with order 1 interpolation (N neighbors) for addition of pixeles
 
             if loc_method == 'brightest_points':  
-                im_filt = cv2.fastNlMeansDenoising(im_upsample, None, 7, 5, 11)
+                im_filt = cv2.fastNlMeansDenoising(im_upsample, None, 7, 5, 11) #NLM denoising : first num - how strong is the denoising. size of patch(group of pixeles). area for comparison
                 coords_localized = processing.brightest_points(image = im_filt, num_bubbles = num_bubbles)
             if loc_method == 'adaptive_thresh':
                 im_filt = sr.upsample(im)
@@ -157,18 +158,18 @@ def tracks2output(path,supermats,FR,num_bubbles, fovx, fovy,tracks_dict,min_trac
     return output,vel_x,vel_y,velocity,DensityIm_time
 
 
-ULMinfo = dict(path = 'C:\\Users\\admin\\Desktop\\Data\\22.12.28 - different width phantoms\\300_100\\flow rate 0.032 FR 80 V 20 1\\MBs_',
-supermats = range(1,6), # this is the number of data blocks you have (for example, 4 blocks of 1500 frames)
-FR = 100, 
-num_bubbles = 40, 
+ULMinfo = dict(path = 'ULM\data\MBs_',
+supermats = range(1,4), # this is the number of data blocks you have (for example, 4 blocks of 1500 frames)
+FR = 250, 
+num_bubbles = 120, 
 fovx = [-6.912, 6.912],  
-fovy = [15, 22]) 
+fovy = [16, 23]) 
 
-tracks_dict, im_shape = localization(**ULMinfo,SVD = True, display_on = True,tracking = 'optic_flow', loc_method = 'adaptive_thresh')
+tracks_dict, im_shape = localization(**ULMinfo,SVD = True, display_on = True,tracking = 'optic_flow', loc_method = 'brightest_points')
 
 
 loaded_objects = pickle.load(open(ULMinfo['path']+"_all_tracks.p", "rb" ))
-superres, vel_x, vel_y, velocity, DensityIm_time = tracks2output(**ULMinfo, tracks_dict = loaded_objects[0], min_track_length = 3,
+superres, vel_x, vel_y, velocity, DensityIm_time = tracks2output(**ULMinfo, tracks_dict = loaded_objects[0], min_track_length = 6,
                                                                   im_shape = loaded_objects[1], num_frames = loaded_objects[2], scale = 2,
                                                                     interpolate = True)
 
@@ -180,9 +181,10 @@ plt.figure(1)
 plt.imshow(superres**(1/2),cmap = 'hot')
 plt.savefig(ULMinfo['path'] + "superresolution.png")
 plt.axis('off')
+clb = plt.colorbar()
 
 plt.figure(2)
-plt.imshow(velocity,cmap = plt.cm.nipy_spectral)
+plt.imshow(velocity,cmap = plt.cm.nipy_spectral,norm=PowerNorm(gamma=2))
 plt.savefig(ULMinfo['path'] + "velocitymap.png")
 plt.axis('off')
 clb = plt.colorbar()
@@ -190,5 +192,3 @@ clb.ax.set_title('mm/sec')
 
 
 plt.show()
-
-print('yarin')

@@ -4,8 +4,6 @@ import cv2
 from scipy.spatial import distance as dist
 import math
 
-
-
 class OpticFlow():
 
     # sparse optic flow estimation. Point movement is estimated with optic flow, closest localized point to estimation is considered next bubble. 
