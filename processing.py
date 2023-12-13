@@ -103,7 +103,7 @@ class Processing:
             num points: estimated number of bubbles per frame (try different options to optimize)
         Returns:
             coords: coordinates of localized bubbles"""
-        coordinates = peak_local_max(image = image,min_distance=6,num_peaks = num_bubbles) 
+        coordinates = peak_local_max(image = image,min_distance=2,num_peaks = num_bubbles) #min dist=distane between pixeles to filter out too close pixeles.
         coords_localized = Processing.weighted_av(image,coordinates)
         return coords_localized
     
@@ -114,10 +114,10 @@ class Processing:
             im: the frame to localize bubbles in
         Returns:
             coords: coordinates of localized bubbles"""
-        
+        #bilateralFilter(image, d=7, sigmaColor=160, sigmaSpace=160)
         filtered = cv2.bilateralFilter(image, d=7, sigmaColor=160, sigmaSpace=160)
         mask = cv2.adaptiveThreshold(filtered,255, cv2.ADAPTIVE_THRESH_MEAN_C,\
-                cv2.THRESH_BINARY,17,-12) # these are parameters you may need to play with to get good results
+                cv2.THRESH_BINARY,27,-14) # these are parameters you may need to play with to get good results - 17, -12 are originals
         filtered[mask==0] = 0
         # im_erode = cv2.erode(filtered, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2,2))) 
         # close small holes that are probably noise
